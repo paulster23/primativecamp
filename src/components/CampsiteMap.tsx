@@ -131,7 +131,7 @@ const CampsiteMap: React.FC = () => {
               border-radius: 4px;
               padding: 8px;
               box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-              max-width: 300px;
+              max-width: 600px;
               font-size: 12px;
             ">
               <strong>${campsite.name}</strong><br/>
