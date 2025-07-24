@@ -55,11 +55,11 @@ const CampsiteMap: React.FC = () => {
       });
     };
 
-    const vectorLayer = new VectorLayer({
+    const vectorLayer: VectorLayer<VectorSource> = new VectorLayer({
       source: vectorSource,
-      style: (feature) => {
-        const zoom = initialMap.getView().getZoom() || 8;
-        return getTentStyle(zoom);
+      style: () => {
+        // Default style - will be updated by zoom change listener
+        return getTentStyle(8);
       }
     });
 
@@ -114,7 +114,8 @@ const CampsiteMap: React.FC = () => {
 
     // Add zoom change listener to update icon sizes
     initialMap.getView().on('change:resolution', () => {
-      vectorLayer.changed(); // This triggers a re-render with updated styles
+      const currentZoom = initialMap.getView().getZoom() || 8;
+      vectorLayer.setStyle(() => getTentStyle(currentZoom));
     });
 
     // Add hover interaction
