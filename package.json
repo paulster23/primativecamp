@@ -2,7 +2,7 @@
   "homepage": "https://paulster23.github.io/primativecamp",
 "scripts": {
   "predeploy": "npm run build",
-  "deploy": "gh-pages -d build",
+  "deploy": "gh-pages -d build"
 }
 "name": "campsite-map",
   "version": "0.1.0",
