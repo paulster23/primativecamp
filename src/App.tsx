@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import CampsiteMap, { MapNavigationMethods } from './components/CampsiteMap';
 import LocationSearchBar from './components/LocationSearchBar';
 import { LocationResult } from './services/geocodingService';
@@ -6,6 +6,18 @@ import './styles/App.css';
 
 function App() {
   const mapRef = useRef<MapNavigationMethods>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768 || 'ontouchstart' in window);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const handleLocationSelected = (location: LocationResult) => {
     if (mapRef.current) {
@@ -29,15 +41,16 @@ function App() {
     <div className="App" style={{ position: 'relative', width: '100%', height: '100vh' }}>
       <CampsiteMap ref={mapRef} />
       
-      {/* Search bar overlay */}
+      {/* Search bar overlay - mobile responsive */}
       <div style={{
         position: 'absolute',
-        top: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
+        top: isMobile ? '12px' : '20px',
+        left: isMobile ? '8px' : '50%',
+        right: isMobile ? '8px' : 'auto',
+        transform: isMobile ? 'none' : 'translateX(-50%)',
         zIndex: 1000,
-        width: '90%',
-        maxWidth: '400px'
+        width: isMobile ? 'auto' : '90%',
+        maxWidth: isMobile ? 'none' : '400px'
       }}>
         <LocationSearchBar 
           onLocationSelected={handleLocationSelected}
@@ -46,11 +59,11 @@ function App() {
         />
       </div>
       
-      {/* Clear search button */}
+      {/* Clear search button - mobile responsive */}
       <div style={{
         position: 'absolute',
-        top: '80px',
-        right: '20px',
+        top: isMobile ? '72px' : '80px',
+        right: isMobile ? '8px' : '20px',
         zIndex: 1000
       }}>
         <button
@@ -61,14 +74,16 @@ function App() {
             }
           }}
           style={{
-            padding: '8px 12px',
+            padding: isMobile ? '12px 16px' : '8px 12px',
             backgroundColor: 'white',
             border: '2px solid #ddd',
-            borderRadius: '6px',
+            borderRadius: isMobile ? '8px' : '6px',
             cursor: 'pointer',
-            fontSize: '12px',
+            fontSize: isMobile ? '14px' : '12px',
             boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            minHeight: isMobile ? '44px' : 'auto', // Touch target size
+            minWidth: isMobile ? '44px' : 'auto'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = '#f8f9fa';

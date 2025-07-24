@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
+import React, { useEffect, useRef, useImperativeHandle, forwardRef, useState } from 'react';
 import Map from 'ol/Map';
 import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
@@ -12,6 +12,7 @@ import { Style, Icon, Fill, Stroke, Circle } from 'ol/style';
 import Overlay from 'ol/Overlay';
 import { Campsite } from '../types/Campsite';
 import { useCampsiteData } from '../hooks/useCampsiteData';
+import CampsiteModal from './CampsiteModal';
 import 'ol/ol.css';
 
 export interface MapNavigationMethods {
@@ -30,6 +31,22 @@ const CampsiteMap = forwardRef<MapNavigationMethods, CampsiteMapProps>((props, r
   const campsiteVectorSourceRef = useRef<VectorSource | null>(null);
   const locationVectorSourceRef = useRef<VectorSource | null>(null);
   const { campsites, loading, error } = useCampsiteData();
+  
+  // Mobile-friendly modal state
+  const [selectedCampsite, setSelectedCampsite] = useState<Campsite | null>(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Detect if user is on mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768 || 'ontouchstart' in window);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -150,40 +167,69 @@ const CampsiteMap = forwardRef<MapNavigationMethods, CampsiteMapProps>((props, r
       campsiteLayer.setStyle(() => getTentStyle(currentZoom));
     });
 
-    // Add hover interaction
-    initialMap.on('pointermove', (event) => {
-      const feature = initialMap.forEachFeatureAtPixel(event.pixel, (feature) => feature);
+    // Mobile-friendly interactions
+    if (isMobile) {
+      // Touch-friendly click interaction for mobile
+      initialMap.on('singleclick', (event) => {
+        const feature = initialMap.forEachFeatureAtPixel(event.pixel, (feature) => feature);
+        
+        if (feature) {
+          const campsite = feature.get('campsite') as Campsite;
+          if (campsite) {
+            setSelectedCampsite(campsite);
+            setIsModalVisible(true);
+          }
+        }
+      });
+    } else {
+      // Desktop hover interaction (keep existing for desktop)
+      initialMap.on('pointermove', (event) => {
+        const feature = initialMap.forEachFeatureAtPixel(event.pixel, (feature) => feature);
+        
+        if (feature) {
+          const campsite = feature.get('campsite') as Campsite;
+          if (campsite && tooltipRef.current) {
+            tooltipRef.current.innerHTML = `
+              <div style="
+                background: white;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                padding: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                max-width: 600px;
+                font-size: 12px;
+              ">
+                <strong>${campsite.name}</strong><br/>
+                <em>${campsite.stateLand}</em><br/>
+                📍 ${campsite.address}<br/>
+                🏘️ ${campsite.town}, ${campsite.county}<br/>
+                📍 ${campsite.latitude.toFixed(6)}, ${campsite.longitude.toFixed(6)}
+                ${campsite.notes ? `<br/><small>ℹ️ ${campsite.notes}</small>` : ''}
+              </div>
+            `;
+            tooltipOverlay.setPosition(event.coordinate);
+            tooltipRef.current.style.display = 'block';
+          }
+        } else {
+          if (tooltipRef.current) {
+            tooltipRef.current.style.display = 'none';
+          }
+        }
+      });
       
-      if (feature) {
-        const campsite = feature.get('campsite') as Campsite;
-        if (campsite && tooltipRef.current) {
-          tooltipRef.current.innerHTML = `
-            <div style="
-              background: white;
-              border: 1px solid #ccc;
-              border-radius: 4px;
-              padding: 8px;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-              max-width: 600px;
-              font-size: 12px;
-            ">
-              <strong>${campsite.name}</strong><br/>
-              <em>${campsite.stateLand}</em><br/>
-              📍 ${campsite.address}<br/>
-              🏘️ ${campsite.town}, ${campsite.county}<br/>
-              📍 ${campsite.latitude.toFixed(6)}, ${campsite.longitude.toFixed(6)}
-              ${campsite.notes ? `<br/><small>ℹ️ ${campsite.notes}</small>` : ''}
-            </div>
-          `;
-          tooltipOverlay.setPosition(event.coordinate);
-          tooltipRef.current.style.display = 'block';
+      // Also add click interaction for desktop (alternative to hover)
+      initialMap.on('singleclick', (event) => {
+        const feature = initialMap.forEachFeatureAtPixel(event.pixel, (feature) => feature);
+        
+        if (feature) {
+          const campsite = feature.get('campsite') as Campsite;
+          if (campsite) {
+            setSelectedCampsite(campsite);
+            setIsModalVisible(true);
+          }
         }
-      } else {
-        if (tooltipRef.current) {
-          tooltipRef.current.style.display = 'none';
-        }
-      }
-    });
+      });
+    }
 
     return () => {
       initialMap.setTarget(undefined);
@@ -191,7 +237,7 @@ const CampsiteMap = forwardRef<MapNavigationMethods, CampsiteMapProps>((props, r
       campsiteVectorSourceRef.current = null;
       locationVectorSourceRef.current = null;
     };
-  }, [campsites]);
+  }, [campsites, isMobile]);
   
   // Expose navigation methods to parent components
   useImperativeHandle(ref, () => ({
@@ -269,30 +315,65 @@ const CampsiteMap = forwardRef<MapNavigationMethods, CampsiteMapProps>((props, r
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
       <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+      
+      {/* Desktop tooltip (hidden on mobile) */}
       <div 
         ref={tooltipRef} 
         style={{ 
           position: 'absolute',
-          display: 'none',
+          display: isMobile ? 'none' : 'none', // Will be shown by hover events
           pointerEvents: 'none',
           zIndex: 1000
         }} 
       />
+      
+      {/* Info panel - responsive */}
       <div style={{
         position: 'absolute',
-        top: 10,
-        left: 10,
-        background: 'rgba(255, 255, 255, 0.9)',
-        padding: '10px',
-        borderRadius: '4px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        zIndex: 1000
+        top: isMobile ? '8px' : '10px',
+        left: isMobile ? '8px' : '10px',
+        background: 'rgba(255, 255, 255, 0.95)',
+        padding: isMobile ? '8px 12px' : '10px',
+        borderRadius: isMobile ? '8px' : '4px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        zIndex: 1000,
+        maxWidth: isMobile ? 'calc(100vw - 16px)' : 'auto'
       }}>
-        <h3 style={{ margin: '0 0 5px 0', fontSize: '16px' }}>NY State Campsites</h3>
-        <p style={{ margin: 0, fontSize: '12px', color: '#666' }}>
+        <h3 style={{ 
+          margin: '0 0 4px 0', 
+          fontSize: isMobile ? '14px' : '16px',
+          fontWeight: '600'
+        }}>
+          NY State Campsites
+        </h3>
+        <p style={{ 
+          margin: 0, 
+          fontSize: isMobile ? '11px' : '12px', 
+          color: '#666' 
+        }}>
           {campsites.length} campsites loaded
         </p>
+        {isMobile && (
+          <p style={{ 
+            margin: '4px 0 0 0', 
+            fontSize: '10px', 
+            color: '#888',
+            fontStyle: 'italic'
+          }}>
+            Tap campsites for details
+          </p>
+        )}
       </div>
+      
+      {/* Mobile-friendly campsite modal */}
+      <CampsiteModal 
+        campsite={selectedCampsite}
+        isVisible={isModalVisible}
+        onClose={() => {
+          setIsModalVisible(false);
+          setSelectedCampsite(null);
+        }}
+      />
     </div>
   );
 });
