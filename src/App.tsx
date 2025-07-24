@@ -1,6 +1,6 @@
 import React from 'react';
 import CampsiteMap from './components/CampsiteMap';
-import './App.css';
+import './styles/App.css';
 
 function App() {
   return (

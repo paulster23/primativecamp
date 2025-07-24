@@ -11,13 +11,13 @@ import { fromLonLat } from 'ol/proj';
 import { Style, Icon } from 'ol/style';
 import Overlay from 'ol/Overlay';
 import { Campsite } from '../types/Campsite';
-import { loadCampsiteData } from '../utils/csvParser';
+import { useCampsiteData } from '../hooks/useCampsiteData';
 import 'ol/ol.css';
 
 const CampsiteMap: React.FC = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const [campsites, setCampsites] = useState<Campsite[]>([]);
+  const { campsites, loading, error } = useCampsiteData();
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -87,13 +87,13 @@ const CampsiteMap: React.FC = () => {
     });
 
 
-    // Load and add campsite data
-    const loadData = async () => {
-      const data = await loadCampsiteData();
-      setCampsites(data);
+    // Add campsite data when available
+    if (campsites.length > 0) {
+      // Clear existing features
+      vectorSource.clear();
       
       // Add features for each campsite
-      data.forEach(campsite => {
+      campsites.forEach(campsite => {
         if (campsite.latitude && campsite.longitude) {
           const feature = new Feature({
             geometry: new Point(fromLonLat([campsite.longitude, campsite.latitude])),
@@ -104,13 +104,9 @@ const CampsiteMap: React.FC = () => {
       });
 
       // Fit view to show all campsites
-      if (data.length > 0) {
-        const extent = vectorSource.getExtent();
-        initialMap.getView().fit(extent, { padding: [50, 50, 50, 50] });
-      }
-    };
-
-    loadData();
+      const extent = vectorSource.getExtent();
+      initialMap.getView().fit(extent, { padding: [50, 50, 50, 50] });
+    }
 
     // Add zoom change listener to update icon sizes
     initialMap.getView().on('change:resolution', () => {
@@ -156,7 +152,23 @@ const CampsiteMap: React.FC = () => {
     return () => {
       initialMap.setTarget(undefined);
     };
-  }, []);
+  }, [campsites]);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Loading campsite data...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
