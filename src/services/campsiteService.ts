@@ -1,6 +1,5 @@
 import Papa from 'papaparse';
 import { Campsite } from '../types/Campsite';
-import campsitesCSV from '../data/campsites.csv';
 
 export const parseCampsiteCSV = (csvText: string): Campsite[] => {
   const result = Papa.parse(csvText, {
@@ -24,7 +23,14 @@ export const parseCampsiteCSV = (csvText: string): Campsite[] => {
 
 export const loadCampsiteData = async (): Promise<Campsite[]> => {
   try {
-    const response = await fetch(campsitesCSV);
+    // Use process.env.PUBLIC_URL to handle both dev and production environments
+    const publicUrl = process.env.PUBLIC_URL || '';
+    const response = await fetch(`${publicUrl}/campsites.csv`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
     const csvText = await response.text();
     return parseCampsiteCSV(csvText);
   } catch (error) {
