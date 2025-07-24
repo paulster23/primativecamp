@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/primativecamp/static/css/main.073c3780.css",
-    "main.js": "/primativecamp/static/js/main.e4f3cabc.js",
+    "main.js": "/primativecamp/static/js/main.c4980f2e.js",
     "static/js/453.58499008.chunk.js": "/primativecamp/static/js/453.58499008.chunk.js",
     "index.html": "/primativecamp/index.html",
     "main.073c3780.css.map": "/primativecamp/static/css/main.073c3780.css.map",
-    "main.e4f3cabc.js.map": "/primativecamp/static/js/main.e4f3cabc.js.map",
+    "main.c4980f2e.js.map": "/primativecamp/static/js/main.c4980f2e.js.map",
     "453.58499008.chunk.js.map": "/primativecamp/static/js/453.58499008.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.073c3780.css",
-    "static/js/main.e4f3cabc.js"
+    "static/js/main.c4980f2e.js"
   ]
 }
