@@ -1,11 +1,11 @@
 {
-"homepage": "https://paulster23.github.io/primativecamp",
+  "homepage": "https://<username>.github.io/<repository>",
 "scripts": {
   "predeploy": "npm run build",
   "deploy": "gh-pages -d build",
   // ... other scripts
   },
-"name": "campsite-map",
+  "name": "campsite-map",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
