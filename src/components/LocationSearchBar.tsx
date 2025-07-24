@@ -161,18 +161,25 @@ const LocationSearchBar: React.FC<LocationSearchBarProps> = ({
           alignItems: 'center'
         }}
       >
-        <div>
-          <div style={{ fontWeight: '500', color: '#333' }}>
-            {isPopular && '⭐ '}{mainLocation}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+          <div style={{ fontSize: '16px' }}>
+            {location.icon || (isPopular ? '⭐' : '📍')}
           </div>
-          {subLocation && (
-            <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
-              {subLocation}
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: '500', color: '#333' }}>
+              {mainLocation}
             </div>
-          )}
+            {subLocation && (
+              <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                {subLocation}
+              </div>
+            )}
+          </div>
         </div>
         <div style={{ fontSize: '11px', color: '#999', textTransform: 'capitalize' }}>
-          {location.type}
+          {location.featureCategory === 'natural' ? 'Natural' :
+           location.featureCategory === 'water' ? 'Water' :
+           location.featureCategory === 'recreation' ? 'Park' : 'City'}
         </div>
       </div>
     );

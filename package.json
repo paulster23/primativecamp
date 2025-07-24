@@ -29,6 +29,8 @@
     "test:unit": "react-scripts test --watchAll=false",
     "test:data": "node scripts/test-data-loading.js",
     "test:geocoding": "node scripts/test-geocoding.js",
+    "test:landmarks": "node scripts/test-natural-landmarks.js",
+    "test:examples": "node scripts/test-user-examples.js",
     "test:all": "npm run test:unit && npm run test:data && npm run test:geocoding",
     "build:test": "npm run build && npm run test:unit",
     "eject": "react-scripts eject",

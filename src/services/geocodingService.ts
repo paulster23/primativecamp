@@ -4,7 +4,9 @@ export interface LocationResult {
   longitude: number;
   bbox?: [number, number, number, number]; // [west, south, east, north]
   importance: number;
-  type: string; // city, town, village, etc.
+  type: string; // city, town, village, lake, peak, forest, etc.
+  featureCategory: 'administrative' | 'natural' | 'water' | 'recreation'; // for UI grouping
+  icon?: string; // emoji for display
 }
 
 export interface GeocodingError {
@@ -99,42 +101,86 @@ class GeocodingService {
                         address.state === 'New York' ||
                         address.state === 'NY';
           
-          // Expanded type and class checking
-          const validTypes = ['city', 'town', 'village', 'hamlet', 'county', 'state', 
-                             'municipality', 'borough', 'administrative', 'locality'];
-          const validClasses = ['place', 'administrative', 'boundary'];
+          // Expanded type and class checking for cities AND natural features
+          const validTypes = [
+            // Cities and administrative areas
+            'city', 'town', 'village', 'hamlet', 'county', 'state', 
+            'municipality', 'borough', 'administrative', 'locality',
+            // Natural features (based on research findings)
+            'lake', 'peak', 'forest', 'wood', 'nature_reserve', 'protected_area',
+            'park', 'island', 'mountain', 'water'
+          ];
+          const validClasses = [
+            // Administrative classes
+            'place', 'administrative', 'boundary',
+            // Natural feature classes (key finding from research)
+            'natural', 'water', 'leisure'
+          ];
           
           const isRelevantType = validTypes.includes(item.type) ||
                                validClasses.includes(item.class);
           
-          // Debug logging for filtering decisions
-          if (displayName.includes('albany') || displayName.includes('buffalo') || displayName.includes('syracuse')) {
-            console.log('🎯 Major city check:', {
+          // Debug logging for filtering decisions (cities and natural features)
+          const isDebugWorthy = displayName.includes('albany') || displayName.includes('buffalo') || 
+                               displayName.includes('syracuse') || displayName.includes('lake') ||
+                               displayName.includes('mountain') || displayName.includes('peak') ||
+                               displayName.includes('forest') || displayName.includes('wilderness');
+          
+          if (isDebugWorthy) {
+            console.log('🎯 Feature check:', {
               name: item.display_name,
               type: item.type,
               class: item.class,
               isInNY,
               isRelevantType,
               willInclude: isInNY && isRelevantType,
+              featureType: item.class === 'natural' ? 'Natural Feature' : 
+                          item.class === 'water' ? 'Water Feature' :
+                          item.class === 'leisure' ? 'Recreation Area' : 'Administrative',
               address: address
             });
           }
           
           return isInNY && isRelevantType;
         })
-        .map((item: any) => ({
-          displayName: item.display_name,
-          latitude: parseFloat(item.lat),
-          longitude: parseFloat(item.lon),
-          bbox: item.boundingbox ? [
-            parseFloat(item.boundingbox[2]), // west
-            parseFloat(item.boundingbox[0]), // south
-            parseFloat(item.boundingbox[3]), // east
-            parseFloat(item.boundingbox[1])  // north
-          ] : undefined,
-          importance: parseFloat(item.importance || '0'),
-          type: item.type || 'place'
-        }))
+        .map((item: any) => {
+          // Determine feature category and icon for better UX
+          let featureCategory: 'administrative' | 'natural' | 'water' | 'recreation' = 'administrative';
+          let icon = '🏢'; // default city icon
+          
+          if (item.class === 'natural') {
+            featureCategory = 'natural';
+            icon = item.type === 'peak' ? '🏔️' : '🌲';
+          } else if (item.class === 'water') {
+            featureCategory = 'water';
+            icon = '🌊';
+          } else if (item.class === 'leisure') {
+            featureCategory = 'recreation';
+            icon = '🏡';
+          } else if (item.type === 'protected_area' || item.type === 'nature_reserve') {
+            featureCategory = 'natural';
+            icon = '🌲';
+          } else if (item.type === 'park') {
+            featureCategory = 'recreation';
+            icon = '🏞️';
+          }
+          
+          return {
+            displayName: item.display_name,
+            latitude: parseFloat(item.lat),
+            longitude: parseFloat(item.lon),
+            bbox: item.boundingbox ? [
+              parseFloat(item.boundingbox[2]), // west
+              parseFloat(item.boundingbox[0]), // south
+              parseFloat(item.boundingbox[3]), // east
+              parseFloat(item.boundingbox[1])  // north
+            ] : undefined,
+            importance: parseFloat(item.importance || '0'),
+            type: item.type || 'place',
+            featureCategory,
+            icon
+          };
+        })
         .sort((a: LocationResult, b: LocationResult) => b.importance - a.importance); // Sort by importance
 
       console.log('✅ Filtered results count:', results.length);
@@ -164,7 +210,9 @@ class GeocodingService {
               parseFloat(item.boundingbox[1])
             ] : undefined,
             importance: parseFloat(item.importance || '0'),
-            type: item.type || 'place'
+            type: item.type || 'place',
+            featureCategory: 'administrative' as const,
+            icon: '🏢'
           }));
           
         if (fallbackResults.length > 0) {
@@ -243,7 +291,9 @@ class GeocodingService {
           parseFloat(data.boundingbox[1])
         ] : undefined,
         importance: parseFloat(data.importance || '0'),
-        type: data.type || 'place'
+        type: data.type || 'place',
+        featureCategory: 'administrative' as const,
+        icon: '📍'
       };
 
     } catch (error) {
@@ -264,28 +314,36 @@ class GeocodingService {
         latitude: 42.6803,
         longitude: -73.8370,
         importance: 0.8,
-        type: "city"
+        type: "city",
+        featureCategory: "administrative",
+        icon: "🏢"
       },
       {
         displayName: "Syracuse, Onondaga County, New York", 
         latitude: 43.0481,
         longitude: -76.1474,
         importance: 0.8,
-        type: "city"
+        type: "city",
+        featureCategory: "administrative",
+        icon: "🏢"
       },
       {
         displayName: "Buffalo, Erie County, New York",
         latitude: 42.8864,
         longitude: -78.8784,
         importance: 0.8,
-        type: "city"
+        type: "city",
+        featureCategory: "administrative",
+        icon: "🏢"
       },
       {
         displayName: "Rochester, Monroe County, New York",
         latitude: 43.1566,
         longitude: -77.6088,
         importance: 0.8,
-        type: "city"
+        type: "city",
+        featureCategory: "administrative",
+        icon: "🏢"
       },
       {
         displayName: "Adirondack Park, New York",
@@ -293,7 +351,9 @@ class GeocodingService {
         longitude: -74.2651,
         bbox: [-75.3, 43.0, -73.3, 44.9],
         importance: 0.9,
-        type: "park"
+        type: "protected_area",
+        featureCategory: "natural",
+        icon: "🌲"
       },
       {
         displayName: "Catskill Mountains, New York",
@@ -301,7 +361,9 @@ class GeocodingService {
         longitude: -74.2651,
         bbox: [-75.0, 41.8, -73.5, 42.5],
         importance: 0.9,
-        type: "mountain_range"
+        type: "mountain_range",
+        featureCategory: "natural",
+        icon: "🏔️"
       }
     ];
   }
