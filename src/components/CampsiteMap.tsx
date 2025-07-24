@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import Map from 'ol/Map';
 import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
@@ -8,22 +8,39 @@ import OSM from 'ol/source/OSM';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
 import { fromLonLat } from 'ol/proj';
-import { Style, Icon } from 'ol/style';
+import { Style, Icon, Fill, Stroke, Circle } from 'ol/style';
 import Overlay from 'ol/Overlay';
 import { Campsite } from '../types/Campsite';
 import { useCampsiteData } from '../hooks/useCampsiteData';
 import 'ol/ol.css';
 
-const CampsiteMap: React.FC = () => {
+export interface MapNavigationMethods {
+  navigateToLocation: (lat: number, lng: number, zoom?: number) => void;
+  addLocationMarker: (lat: number, lng: number, label?: string) => void;
+  clearLocationMarkers: () => void;
+  fitToNYState: () => void;
+}
+
+interface CampsiteMapProps {}
+
+const CampsiteMap = forwardRef<MapNavigationMethods, CampsiteMapProps>((props, ref) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<Map | null>(null);
+  const campsiteVectorSourceRef = useRef<VectorSource | null>(null);
+  const locationVectorSourceRef = useRef<VectorSource | null>(null);
   const { campsites, loading, error } = useCampsiteData();
 
   useEffect(() => {
     if (!mapRef.current) return;
 
     // Create vector source and layer for campsites
-    const vectorSource = new VectorSource();
+    const campsiteVectorSource = new VectorSource();
+    campsiteVectorSourceRef.current = campsiteVectorSource;
+    
+    // Create vector source and layer for location markers
+    const locationVectorSource = new VectorSource();
+    locationVectorSourceRef.current = locationVectorSource;
     
     // Function to calculate tent icon scale based on zoom level
     const getTentScale = (zoom: number) => {
@@ -55,12 +72,28 @@ const CampsiteMap: React.FC = () => {
       });
     };
 
-    const vectorLayer: VectorLayer<VectorSource> = new VectorLayer({
-      source: vectorSource,
+    const campsiteLayer: VectorLayer<VectorSource> = new VectorLayer({
+      source: campsiteVectorSource,
       style: () => {
         // Default style - will be updated by zoom change listener
         return getTentStyle(8);
       }
+    });
+    
+    // Style for location markers
+    const getLocationMarkerStyle = () => {
+      return new Style({
+        image: new Circle({
+          radius: 8,
+          fill: new Fill({ color: '#ff4444' }),
+          stroke: new Stroke({ color: '#ffffff', width: 2 })
+        })
+      });
+    };
+    
+    const locationLayer: VectorLayer<VectorSource> = new VectorLayer({
+      source: locationVectorSource,
+      style: getLocationMarkerStyle
     });
 
     // Create tooltip overlay
@@ -77,7 +110,8 @@ const CampsiteMap: React.FC = () => {
         new TileLayer({
           source: new OSM()
         }),
-        vectorLayer
+        campsiteLayer,
+        locationLayer
       ],
       view: new View({
         center: fromLonLat([-75.0, 44.0]), // Center on New York State
@@ -85,12 +119,14 @@ const CampsiteMap: React.FC = () => {
       }),
       overlays: [tooltipOverlay]
     });
+    
+    mapInstanceRef.current = initialMap;
 
 
     // Add campsite data when available
     if (campsites.length > 0) {
       // Clear existing features
-      vectorSource.clear();
+      campsiteVectorSource.clear();
       
       // Add features for each campsite
       campsites.forEach(campsite => {
@@ -99,19 +135,19 @@ const CampsiteMap: React.FC = () => {
             geometry: new Point(fromLonLat([campsite.longitude, campsite.latitude])),
             campsite: campsite
           });
-          vectorSource.addFeature(feature);
+          campsiteVectorSource.addFeature(feature);
         }
       });
 
       // Fit view to show all campsites
-      const extent = vectorSource.getExtent();
+      const extent = campsiteVectorSource.getExtent();
       initialMap.getView().fit(extent, { padding: [50, 50, 50, 50] });
     }
 
     // Add zoom change listener to update icon sizes
     initialMap.getView().on('change:resolution', () => {
       const currentZoom = initialMap.getView().getZoom() || 8;
-      vectorLayer.setStyle(() => getTentStyle(currentZoom));
+      campsiteLayer.setStyle(() => getTentStyle(currentZoom));
     });
 
     // Add hover interaction
@@ -151,8 +187,68 @@ const CampsiteMap: React.FC = () => {
 
     return () => {
       initialMap.setTarget(undefined);
+      mapInstanceRef.current = null;
+      campsiteVectorSourceRef.current = null;
+      locationVectorSourceRef.current = null;
     };
   }, [campsites]);
+  
+  // Expose navigation methods to parent components
+  useImperativeHandle(ref, () => ({
+    navigateToLocation: (lat: number, lng: number, zoom: number = 12) => {
+      if (!mapInstanceRef.current) return;
+      
+      const view = mapInstanceRef.current.getView();
+      const coordinate = fromLonLat([lng, lat]);
+      
+      // Smooth animation to the location
+      view.animate({
+        center: coordinate,
+        zoom: zoom,
+        duration: 1000
+      });
+    },
+    
+    addLocationMarker: (lat: number, lng: number, label?: string) => {
+      if (!locationVectorSourceRef.current) return;
+      
+      // Clear existing location markers
+      locationVectorSourceRef.current.clear();
+      
+      // Add new location marker
+      const feature = new Feature({
+        geometry: new Point(fromLonLat([lng, lat])),
+        type: 'location',
+        label: label || 'Search Location'
+      });
+      
+      locationVectorSourceRef.current.addFeature(feature);
+    },
+    
+    clearLocationMarkers: () => {
+      if (!locationVectorSourceRef.current) return;
+      locationVectorSourceRef.current.clear();
+    },
+    
+    fitToNYState: () => {
+      if (!mapInstanceRef.current || !campsiteVectorSourceRef.current) return;
+      
+      const extent = campsiteVectorSourceRef.current.getExtent();
+      if (extent && extent.some(val => !isNaN(val))) {
+        mapInstanceRef.current.getView().fit(extent, { 
+          padding: [50, 50, 50, 50],
+          duration: 1000
+        });
+      } else {
+        // Fallback to NY State center
+        mapInstanceRef.current.getView().animate({
+          center: fromLonLat([-75.0, 44.0]),
+          zoom: 8,
+          duration: 1000
+        });
+      }
+    }
+  }), []);
 
   if (loading) {
     return (
@@ -199,6 +295,6 @@ const CampsiteMap: React.FC = () => {
       </div>
     </div>
   );
-};
+});
 
 export default CampsiteMap;
