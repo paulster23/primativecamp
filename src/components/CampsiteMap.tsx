@@ -215,21 +215,21 @@ const CampsiteMap = forwardRef<MapNavigationMethods, CampsiteMapProps>((props, r
           <div style="
             background: #ffffff;
             border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 20px;
+            border-radius: ${isMobile ? '16px' : '12px'};
+            padding: ${isMobile ? '16px' : '20px'};
             box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-            max-width: 400px;
-            min-width: 300px;
+            max-width: ${isMobile ? '320px' : '400px'};
+            min-width: ${isMobile ? '280px' : '300px'};
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            font-size: 14px;
+            font-size: ${isMobile ? '13px' : '14px'};
             line-height: 1.5;
           ">
             <div style="
               display: flex;
               align-items: center;
-              gap: 12px;
-              margin-bottom: 16px;
-              padding-bottom: 12px;
+              gap: ${isMobile ? '10px' : '12px'};
+              margin-bottom: ${isMobile ? '12px' : '16px'};
+              padding-bottom: ${isMobile ? '10px' : '12px'};
               border-bottom: 1px solid #f1f5f9;
             ">
               <div style="
@@ -249,14 +249,14 @@ const CampsiteMap = forwardRef<MapNavigationMethods, CampsiteMapProps>((props, r
               <div>
                 <h3 style="
                   margin: 0;
-                  font-size: 18px;
+                  font-size: ${isMobile ? '16px' : '18px'};
                   font-weight: 600;
                   color: #111827;
                   font-family: 'Poppins', sans-serif;
                 ">${campsite.name}</h3>
                 <p style="
                   margin: 2px 0 0 0;
-                  font-size: 14px;
+                  font-size: ${isMobile ? '13px' : '14px'};
                   color: #6b7280;
                   font-weight: 500;
                 ">${campsite.stateLand}</p>
@@ -340,7 +340,8 @@ const CampsiteMap = forwardRef<MapNavigationMethods, CampsiteMapProps>((props, r
             
             <div style="
               display: flex;
-              gap: 8px;
+              flex-direction: ${isMobile ? 'column' : 'row'};
+              gap: ${isMobile ? '10px' : '8px'};
             ">
               <a 
                 href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${campsite.name}, ${campsite.address}, ${campsite.town}, NY`)}"
@@ -352,12 +353,13 @@ const CampsiteMap = forwardRef<MapNavigationMethods, CampsiteMapProps>((props, r
                   justify-content: center;
                   gap: 6px;
                   flex: 1;
-                  padding: 12px 8px;
+                  padding: ${isMobile ? '16px 12px' : '12px 8px'};
+                  min-height: ${isMobile ? '48px' : 'auto'};
                   background: #4285f4;
                   color: white;
                   border: none;
                   border-radius: 8px;
-                  font-size: 13px;
+                  font-size: ${isMobile ? '14px' : '13px'};
                   font-weight: 600;
                   cursor: pointer;
                   transition: all 0.2s ease;
@@ -385,12 +387,13 @@ const CampsiteMap = forwardRef<MapNavigationMethods, CampsiteMapProps>((props, r
                   justify-content: center;
                   gap: 6px;
                   flex: 1;
-                  padding: 12px 8px;
+                  padding: ${isMobile ? '16px 12px' : '12px 8px'};
+                  min-height: ${isMobile ? '48px' : 'auto'};
                   background: #428a13;
                   color: white;
                   border: none;
                   border-radius: 8px;
-                  font-size: 13px;
+                  font-size: ${isMobile ? '14px' : '13px'};
                   font-weight: 600;
                   cursor: pointer;
                   transition: all 0.2s ease;
@@ -415,42 +418,83 @@ const CampsiteMap = forwardRef<MapNavigationMethods, CampsiteMapProps>((props, r
           tooltipRef.current.style.display = 'block';
           tooltipRef.current.style.pointerEvents = 'auto';
           
-          // Add event listeners for hover detection
-          tooltipRef.current.onmouseenter = (e) => {
-            isHoveringTooltipRef.current = true;
-            clearHideTimeout(); // Cancel any pending hide
-          };
-          
-          tooltipRef.current.onmouseleave = (e) => {
-            isHoveringTooltipRef.current = false;
-            scheduleHide(); // Hide after small delay for smooth transitions
-          };
+          // Add event listeners for hover detection (desktop only)
+          if (!isMobile) {
+            tooltipRef.current.onmouseenter = (e) => {
+              isHoveringTooltipRef.current = true;
+              clearHideTimeout(); // Cancel any pending hide
+            };
+            
+            tooltipRef.current.onmouseleave = (e) => {
+              isHoveringTooltipRef.current = false;
+              scheduleHide(); // Hide after small delay for smooth transitions
+            };
+          } else {
+            // Mobile: remove hover listeners, tooltip stays until tap outside
+            tooltipRef.current.onmouseenter = null;
+            tooltipRef.current.onmouseleave = null;
+          }
         }
       }
     };
     
-    // Hover and click interactions for all devices
-    initialMap.on('pointermove', (event) => {
-      // Don't process map features if mouse is hovering over the tooltip
-      if (isHoveringTooltipRef.current) {
-        return; // Skip feature detection entirely when hovering over tooltip
-      }
-      
+    // Mobile-specific click interaction
+    initialMap.on('singleclick', (event) => {
       const feature = initialMap.forEachFeatureAtPixel(event.pixel, (feature) => feature);
       
       if (feature) {
         const campsite = feature.get('campsite') as Campsite;
         if (campsite && tooltipRef.current) {
-          clearHideTimeout(); // Cancel any pending hide immediately
-          showTooltip(campsite, event.coordinate);
+          if (isMobile) {
+            // On mobile, toggle tooltip visibility
+            const isDifferentCampsite = !currentCampsiteRef.current || 
+              currentCampsiteRef.current.name !== campsite.name ||
+              currentCampsiteRef.current.latitude !== campsite.latitude ||
+              currentCampsiteRef.current.longitude !== campsite.longitude;
+            
+            const isCurrentlyVisible = tooltipRef.current.style.display === 'block';
+            
+            if (isDifferentCampsite || !isCurrentlyVisible) {
+              showTooltip(campsite, event.coordinate);
+            } else {
+              // Same campsite, toggle visibility
+              hideTooltip();
+            }
+          } else {
+            // Desktop behavior: show tooltip
+            showTooltip(campsite, event.coordinate);
+          }
         }
-      } else {
-        // Only schedule hide if mouse is not over the tooltip itself
-        if (!isHoveringTooltipRef.current) {
-          scheduleHide();
-        }
+      } else if (isMobile) {
+        // Tap outside on mobile hides tooltip
+        hideTooltip();
       }
     });
+
+    // Desktop hover interactions (only for non-mobile)
+    if (!isMobile) {
+      initialMap.on('pointermove', (event) => {
+        // Don't process map features if mouse is hovering over the tooltip
+        if (isHoveringTooltipRef.current) {
+          return; // Skip feature detection entirely when hovering over tooltip
+        }
+        
+        const feature = initialMap.forEachFeatureAtPixel(event.pixel, (feature) => feature);
+        
+        if (feature) {
+          const campsite = feature.get('campsite') as Campsite;
+          if (campsite && tooltipRef.current) {
+            clearHideTimeout(); // Cancel any pending hide immediately
+            showTooltip(campsite, event.coordinate);
+          }
+        } else {
+          // Only schedule hide if mouse is not over the tooltip itself
+          if (!isHoveringTooltipRef.current) {
+            scheduleHide();
+          }
+        }
+      });
+    }
 
     return () => {
       // Clear any pending hide timeout
